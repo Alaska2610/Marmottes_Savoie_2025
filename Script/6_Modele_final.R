@@ -4,11 +4,6 @@
 ## Test sur 2025 avec exactement les mêmes variables
 #####################################
 library(rjags)
-<<<<<<< HEAD
-=======
-library(geodist)
-## La fonction dist() dans R base fonctionne également
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
 library(qgraph)
 library(ggmap)
 library(mcmcplots)
@@ -37,11 +32,7 @@ site.covs_tot <- data.frame(observations1[,c("secteur","meteo",
                                              "habitat",
                                              "orientation","latitude","longitude",
                                              "julian_day",
-<<<<<<< HEAD
                                              "session","saltitude","maille")])
-=======
-                                             "session","altitude","maille")])
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
 observer_m    <- as.matrix(
   observations1[,c("obs_prim","obs_sec")]
 )
@@ -144,11 +135,7 @@ model7.string_marmottes <-"
                     }
 
                   # Spatial component beaufort
-<<<<<<< HEAD
                   CT[36:70] ~ dmnorm.vcov(mu_beaufort[1:35], D.covar_beaufort[1:35, 1:35])
-=======
-                  CT[36:70] ~ dmnorm.vcov(mu_beaufort[1:33], D.covar_beaufort[1:33, 1:33])
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
                   ## turning covariances into precisions
                   for(i in 1:35){
                     D.covar_beaufort[i, i] <- sigmasq # diagonale de la matrice de covariance
@@ -200,20 +187,11 @@ jags_marmottes7 <- jags.model(
   n.adapt = 1000
 )
 
-<<<<<<< HEAD
 save(jags_marmottes7, file="Output/jags_marmottes7.Rdata")
 load("Output/jags_marmottes7.Rdata")
 
 ## Burn-in
 update(jags_marmottes7, 1000) #5000
-=======
-setwd("G:/FDC_Savoie/Marmottes_Savoie/BDD/Rdata")
-save(jags_marmottes7, file="jags_marmottes7.Rdata")
-load("jags_marmottes7.Rdata")
-
-## Once the model compile, run for a large number of iterations
-update(jags_marmottes7, 5000)
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
 
 ## Save MCMC posteriors for estimated parameters
 out_marmottes7_coda <- coda.samples(
@@ -229,17 +207,10 @@ out_marmottes7_coda <- coda.samples(
       "N",
       "lambda"
     ),
-<<<<<<< HEAD
   n.iter = 5000 #50000
 )
 
 save(out_marmottes7_coda, file="Output/out_marmottes7_coda.Rdata")
-=======
-  n.iter = 50000
-)
-
-save(out_marmottes7_coda, file="Ouput/out_marmottes7_coda.Rdata")
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
 load("Output/out_marmottes7_coda.Rdata")
 
 par(mfrow =  c(3, 3))
@@ -247,54 +218,15 @@ par(mfrow =  c(3, 3))
 plot(out_marmottes7_coda, trace = FALSE)
 ## Plot trace
 plot(out_marmottes7_coda, density = FALSE)
-<<<<<<< HEAD
 
 summary(out_marmottes7_coda)
 
-=======
-# mixage ok 
 summary(out_marmottes7_coda)
-# Effet du dérangement 
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
+
 gelman.diag(out_marmottes7_coda)
 
 mcmc_marmottes7 <- as.data.frame(as.matrix(out_marmottes7_coda))
 plot(density(mcmc_marmottes7$'global.mu_beaufort'))
-
-<<<<<<< HEAD
-=======
-# secteur + derangement_new sur P, altitude + CT sur N
-# altitude centré-réduit
-# exp(0.83)=2.3 => plus du doublement du nb de marmottes par augmentation d'1 unité
-# 1 unité ~ 235m (sd(observations1$altitude))
-# exp(0.83/235*100)=1.42 => 42% d'augmentation du nb de marmottes tous les 100m
-# exp(0.18/235*100)=1.08 => IC inf
-# exp(1.54/235*100)=1.93 => IC sup
-# 1. Empirical mean and standard deviation for each variable,
-# plus standard error of the mean:
-#   
-#                                 Mean     SD Naive SE Time-series SE
-# beta.altN                     0.8309 0.3415 0.001707       0.053103
-# beta.secteur.derangementP[1]  1.6318 0.3164 0.001582       0.004162
-# beta.secteur.derangementP[2]  1.1529 0.5217 0.002609       0.005068
-# beta.secteur.derangementP[3] -1.2608 0.5581 0.002790       0.012158
-# global.mu_beaufort            -0.8240 0.9130 0.004565       0.189082
-# global.mu_lanslevillard           -2.1365 0.7648 0.003824       0.084001
-# lambda_spat                   1.9445 1.3420 0.006710       0.072650
-# sigmasq                       1.9726 1.4385 0.007193       0.085435
-# 
-# 2. Quantiles for each variable:
-#   
-#                                 2.5%     25%     50%     75%   97.5%
-# beta.altN                     0.1812  0.5995  0.8383  1.0388  1.5427
-# beta.secteur.derangementP[1]  1.0204  1.4190  1.6279  1.8420  2.2632
-# beta.secteur.derangementP[2]  0.1510  0.7971  1.1419  1.4960  2.2097
-# beta.secteur.derangementP[3] -2.3360 -1.6391 -1.2620 -0.8826 -0.1596
-# global.mu_beaufort            -2.8378 -1.2931 -0.8614 -0.3688  1.5828
-# global.mu_lanslevillard           -3.6112 -2.5811 -2.1757 -1.7362 -0.3253
-# lambda_spat                   0.3815  1.0439  1.6376  2.4623  5.4525
-# sigmasq                       0.4749  1.1712  1.6675  2.3645  5.2835
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
 
 par(mfrow=c(1,1))
 par(mar=c(2,8,1,1))
@@ -318,13 +250,8 @@ colnames(mcmc_marmottes7_all)[2:3] <- c("CrI2.5","CrI97.5")
 mcmc_marmottes7_all$pmean_mar <- plogis(mcmc_marmottes7_all$mean_mar)
 mcmc_marmottes7_all$pCrI2.5 <- plogis(mcmc_marmottes7_all$CrI2.5)
 mcmc_marmottes7_all$pCrI97.5 <- plogis(mcmc_marmottes7_all$CrI97.5)
-<<<<<<< HEAD
 mcmc_marmottes7_all[1667:1670,]
 ggplot(mcmc_marmottes7_all[1667:1670,], aes(x=pmean_mar, y=variable))+
-=======
-mcmc_marmottes7_all[1642:1645,]
-ggplot(mcmc_marmottes7_all[1642:1645,], aes(x=pmean_mar, y=variable))+
->>>>>>> 8c0ce0caaf848e7f09fb42c6d3e307ae360e57c2
   geom_point()+
   geom_errorbar(aes(xmin=pCrI2.5, xmax=pCrI97.5), width=0.1)+
   xlim(c(0,1)) + ylab("") + xlab("Probabilité de détection, IC95%")
@@ -334,7 +261,6 @@ ggplot(mcmc_marmottes7_all[1642:1645,], aes(x=pmean_mar, y=variable))+
 mean_lambdaN <- summary(out_marmottes7_coda)$statistics
 CI_lambdaN <- summary(out_marmottes7_coda)$quantiles
 
-<<<<<<< HEAD
 save(mean_lambdaN, file="Output/mean_lambdaN.Rdata")
 save(CI_lambdaN, file="Output/CI_lambdaN.Rdata")
 load("Output/mean_lambdaN.Rdata")
@@ -348,6 +274,7 @@ N_sum_mailles <- aggregate(list(Mean=N_all$Mean, IC2.5=N_all$IC2.5, IC97.5=N_all
                            function(x){sum(x)/2})
 N_sum_mailles$densite <- N_sum_mailles$Mean/(pi*150*150/10000)
 aggregate(densite~secteur, N_sum_mailles, ci)
+
 # #Altitude_mean <- aggregate(altitude~secteur+maille, N_all, mean)
 # #N_all_mailles <- cbind(N_sum_mailles, altitude=Altitude_mean[,"altitude"])
 # ggplot(N_all_mailles, aes(x=altitude, y=Mean, color=secteur))+
