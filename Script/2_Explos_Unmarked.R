@@ -1,7 +1,7 @@
 if(CB == TRUE){setwd("../Dataset")}else
 {setwd("G:/FDC_Savoie/Marmottes_Savoie_2025/")}
 
-load("Dataset/observations1.Rdata")
+load("Output/observations1.Rdata")
 
 ################################################################################
 # Visualisation des données -----------------------------------------------
