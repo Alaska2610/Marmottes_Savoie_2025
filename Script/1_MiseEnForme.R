@@ -7,13 +7,14 @@ library(dplyr)
 library(tidyr)
 library(terra)
 library(sf)
+library(rio)
 
-if(CB == TRUE){setwd("../BDD")}else
-{setwd("G:/FDC_Savoie/Marmottes_Savoie/BDD")}
+if(CB == TRUE){setwd("../Dataset")}else
+{setwd("G:/FDC_Savoie/Marmottes_Savoie_2025/Dataset")}
 
 # Import des bases de données
-observations <- read.csv("Observations_renamedMB.csv", h=T, sep=";")
-parametrage <- read.csv("Parametrage_marmottes.csv", h=T, sep=";", dec=",")
+observations <- import("Dataset/marmottes2025_renamedMB.xlsx", which="2025_Marmotte_Base_de_Donnees")
+parametrage <- import("Dataset/marmottes2025_renamedMB.xlsx", which="Parametrage_Both_Sites")
 
 # Ajout de colonnes (jour julien, altitude)
 observations$date <- as.Date(observations$date_time, format="%d/%m/%Y")
