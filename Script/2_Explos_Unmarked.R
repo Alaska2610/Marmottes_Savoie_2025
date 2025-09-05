@@ -1,3 +1,9 @@
+library(gmodels)
+library(unmarked)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
 if(CB == TRUE){setwd("../Dataset")}else
 {setwd("G:/FDC_Savoie/Marmottes_Savoie_2025/")}
 
