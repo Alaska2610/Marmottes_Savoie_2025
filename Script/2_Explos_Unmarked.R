@@ -105,6 +105,11 @@ ggplot(observations1, aes(x=habitat, y=nb_obs_sec, fill=secteur))+
   geom_point(aes(colour=secteur))
 #
 
+# Nb d'animaux comptés selon le dérangement
+ggplot(observations1)+
+  geom_boxplot(aes(x=derangement, y=nb_obs_sec, fill=secteur))
+#
+
 # Dérangement ~ altitude
 ggplot(observations1)+
   geom_boxplot(aes(x=derangement, y=altitude, fill=secteur))+

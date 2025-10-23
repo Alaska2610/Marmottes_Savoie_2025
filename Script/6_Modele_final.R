@@ -68,15 +68,21 @@ rownames(coord_beaufort_mean) <- coord_beaufort_mean$site
 distance_mat_geo1_beaufort <- dist(coord_beaufort_mean[,c("x","y")]) # meters
 distance_mat_geo_beaufort <- as.matrix(distance_mat_geo1_beaufort, labels=T)
 
+# Test modèle sans effet de dérangement sur P et pas d'autocorrélation spatiale
 model7.string_marmottes <-"
           model {
 
             ## Set priors for parameters to be estimated
                 delta ~ dnorm(0, 0.001)
 
+                # # Fixed parameters for detection
+                # for(k in 1:npar.secteur.derangement){
+                #     beta.secteur.derangementP[k] ~ dnorm(0, 0.0001)
+                # }
+                
                 # Fixed parameters for detection
-                for(k in 1:npar.secteur.derangement){
-                    beta.secteur.derangementP[k] ~ dnorm(0, 0.0001)
+                for(k in 1:npar.secteur){
+                    beta.secteurP[k] ~ dnorm(0, 0.0001)
                 }
                 
                 # Fixed parameters for abundance
@@ -105,8 +111,11 @@ model7.string_marmottes <-"
             ## Build design matrix for N and ps
                 for (i in 1:n){
                   ## Area effect on detection probability
-                    logit(pa[i]) <- inprod(beta.secteur.derangementP[], Xsecteur.derangement[i,])
-                    logit(pb[i]) <- inprod(beta.secteur.derangementP[], Xsecteur.derangement[i,])+delta
+                    # logit(pa[i]) <- inprod(beta.secteur.derangementP[], Xsecteur.derangement[i,])
+                    # logit(pb[i]) <- inprod(beta.secteur.derangementP[], Xsecteur.derangement[i,])+delta
+
+                    logit(pa[i]) <- inprod(beta.secteurP[], Xsecteur[i,])
+                    logit(pb[i]) <- inprod(beta.secteurP[], Xsecteur[i,])+delta
 
                     ## try for dependant observers
                     piMat[i, 1] <- ifelse(prim_ran[i]==1, pa[i],
@@ -158,6 +167,7 @@ model7.string_marmottes <-"
 
 ## Define parameters
 npl_marmottes_secteur_derangement <- model.matrix(data = site.covs_tot, ~ secteur+derangement_new)
+npl_marmottes_secteur <- model.matrix(data = site.covs_tot, ~ secteur)
 stops_marmottes <- length(observations1[,1])
 
 prim_ran <- ifelse(observations1$obs_prim=="Manolo"|observations1$obs_prim=="Léane", 1, 2)
@@ -173,8 +183,10 @@ jags_marmottes7 <- jags.model(
   data = list(
     C = y_tot,
     n = stops_marmottes,
-    Xsecteur.derangement = npl_marmottes_secteur_derangement,
-    npar.secteur.derangement = dim(npl_marmottes_secteur_derangement)[2],
+    # Xsecteur.derangement = npl_marmottes_secteur_derangement,
+    Xsecteur = npl_marmottes_secteur,
+    # npar.secteur.derangement = dim(npl_marmottes_secteur_derangement)[2],
+    npar.secteur = dim(npl_marmottes_secteur)[2],
     prim_ran=prim_ran,
     sec_ran=sec_ran,
     #site = site.covs_tot$site,
@@ -184,7 +196,8 @@ jags_marmottes7 <- jags.model(
     #D_beaufort = distance_mat_geo_beaufort / 1000
   ),
   inits = list(
-    beta.secteur.derangementP = rnorm(dim(npl_marmottes_secteur_derangement)[2]),
+    #beta.secteur.derangementP = rnorm(dim(npl_marmottes_secteur_derangement)[2]),
+    beta.secteurP = rnorm(dim(npl_marmottes_secteur)[2]),
     lambda_spat = 0.01,
     sigmasq.inv =  1/0.3,
     global.tau_beaufort = 0.05,
@@ -205,7 +218,8 @@ out_marmottes7_coda <- coda.samples(
   model = jags_marmottes7,
   variable.names =
     c(
-      "beta.secteur.derangementP",
+      #"beta.secteur.derangementP",
+      "beta.secteurP",
       "beta.altN",
       #"lambda_spat",
       #"sigmasq",
@@ -224,33 +238,53 @@ colnames(out_marmottes7_coda[[1]])
 
 par(mfrow =  c(3, 3))
 ## Plot histograms
+# plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
+#                             "beta.altN[1]","beta.altN[2]",
+#                             "beta.secteur.derangementP[1]",
+#                             "beta.secteur.derangementP[2]",
+#                             "beta.secteur.derangementP[3]")],
+#                             #"lambda_spat","sigmasq")],
+#      trace = FALSE)
 plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
-                            "beta.altN[1]","beta.altN[2]",
-                            "beta.secteur.derangementP[1]",
-                            "beta.secteur.derangementP[2]",
-                            "beta.secteur.derangementP[3]")],
-                            #"lambda_spat","sigmasq")],
-     trace = FALSE)
+  "beta.altN[1]","beta.altN[2]",
+  "beta.secteurP[1]",
+  "beta.secteurP[2]")],
+  #"lambda_spat","sigmasq")],
+  trace = FALSE)
+
 ## Plot trace
+# plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
+#                             "beta.altN[1]","beta.altN[2]",
+#                             "beta.secteur.derangementP[1]",
+#                             "beta.secteur.derangementP[2]",
+#                             "beta.secteur.derangementP[3]")],
+#                             #"lambda_spat","sigmasq")], 
+#      density = FALSE)
 plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
-                            "beta.altN[1]","beta.altN[2]",
-                            "beta.secteur.derangementP[1]",
-                            "beta.secteur.derangementP[2]",
-                            "beta.secteur.derangementP[3]")],
-                            #"lambda_spat","sigmasq")], 
-     density = FALSE)
+  "beta.altN[1]","beta.altN[2]",
+  "beta.secteurP[1]",
+  "beta.secteurP[2]")],
+  #"lambda_spat","sigmasq")], 
+  density = FALSE)
 
-## Pb de convergence !
+## Pb de convergence quand l'effet du dérangement sur la détection est intégré dans le modèle !
+## Convergence ok sans dérangement
 
+# summary(out_marmottes7_coda[,c("beta.altN[1]","beta.altN[2]",
+#                                "beta.secteur.derangementP[1]",
+#                                "beta.secteur.derangementP[2]",
+#                                "beta.secteur.derangementP[3]")])
 summary(out_marmottes7_coda[,c("beta.altN[1]","beta.altN[2]",
-                               "beta.secteur.derangementP[1]",
-                               "beta.secteur.derangementP[2]",
-                               "beta.secteur.derangementP[3]")])
+                               "beta.secteurP[1]",
+                               "beta.secteurP[2]")])
 
+# gelman.diag(out_marmottes7_coda[,c("beta.altN[1]","beta.altN[2]",
+#                                    "beta.secteur.derangementP[1]",
+#                                    "beta.secteur.derangementP[2]",
+#                                    "beta.secteur.derangementP[3]")])
 gelman.diag(out_marmottes7_coda[,c("beta.altN[1]","beta.altN[2]",
-                                   "beta.secteur.derangementP[1]",
-                                   "beta.secteur.derangementP[2]",
-                                   "beta.secteur.derangementP[3]")])
+                               "beta.secteurP[1]",
+                               "beta.secteurP[2]")])
 
 par(mfrow=c(1,1))
 par(mar=c(2,8,1,1))
@@ -258,6 +292,10 @@ caterplot(out_marmottes7_coda, "beta.secteur.derangementP", labels.loc="axis",
           labels=c("Intercept (beaufort/ \n Pas de dérangement)",
                    "lanslevillard",
                    "Dérangement"),
+          quantiles=list(outer=c(0.025,0.975),inner=c(0.05,0.95)))
+caterplot(out_marmottes7_coda, "beta.secteurP", labels.loc="axis", 
+          labels=c("Intercept (beaufort)",
+                   "lanslevillard"),
           quantiles=list(outer=c(0.025,0.975),inner=c(0.05,0.95)))
 
 # mcmc_marmottes7[,c("beta.altN[1]","beta.altN[2]",
