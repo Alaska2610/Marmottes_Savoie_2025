@@ -240,7 +240,7 @@ plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
                             #"lambda_spat","sigmasq")], 
      density = FALSE)
 
-## Pb de convergence
+## Pb de convergence !
 
 summary(out_marmottes7_coda[,c("beta.altN[1]","beta.altN[2]",
                                "beta.secteur.derangementP[1]",
