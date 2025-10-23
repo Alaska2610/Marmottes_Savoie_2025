@@ -240,6 +240,8 @@ plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
                             #"lambda_spat","sigmasq")], 
      density = FALSE)
 
+## Pb de convergence
+
 summary(out_marmottes7_coda[,c("beta.altN[1]","beta.altN[2]",
                                "beta.secteur.derangementP[1]",
                                "beta.secteur.derangementP[2]",
@@ -258,88 +260,87 @@ caterplot(out_marmottes7_coda, "beta.secteur.derangementP", labels.loc="axis",
                    "Dérangement"),
           quantiles=list(outer=c(0.025,0.975),inner=c(0.05,0.95)))
 
-# C'est correct de faire comme ça pour avoir les IC de pdet par secteur et dérangement ?
-mcmc_marmottes7[,c("beta.altN[1]","beta.altN[2]",
-    "beta.secteur.derangementP[1]",
-    "beta.secteur.derangementP[2]",
-    "beta.secteur.derangementP[3]")]
-mcmc_marmottes7 <- as.data.frame(as.matrix(out_marmottes7_coda))
-mcmc_marmottes7$beaufort_0Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`
-mcmc_marmottes7$lanslevillard_0Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`+mcmc_marmottes7$`beta.secteur.derangementP[2]`
-mcmc_marmottes7$beaufort_1Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`+mcmc_marmottes7$`beta.secteur.derangementP[3]`
-mcmc_marmottes7$lanslevillard_1Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`+mcmc_marmottes7$`beta.secteur.derangementP[2]`+mcmc_marmottes7$`beta.secteur.derangementP[3]`
-mcmc_marmottes7_quant <- t(apply(mcmc_marmottes7, 2, quantile, p=c(0.025, 0.975)))
-mcmc_marmottes7_mean <- data.frame(mean_mar=apply(mcmc_marmottes7, 2, mean))
-mcmc_marmottes7_all <- cbind(mcmc_marmottes7_mean, mcmc_marmottes7_quant)
-mcmc_marmottes7_all$variable <- rownames(mcmc_marmottes7_all)
-colnames(mcmc_marmottes7_all)[2:3] <- c("CrI2.5","CrI97.5")
-mcmc_marmottes7_all$pmean_mar <- plogis(mcmc_marmottes7_all$mean_mar)
-mcmc_marmottes7_all$pCrI2.5 <- plogis(mcmc_marmottes7_all$CrI2.5)
-mcmc_marmottes7_all$pCrI97.5 <- plogis(mcmc_marmottes7_all$CrI97.5)
-mcmc_marmottes7_all[1667:1670,]
-ggplot(mcmc_marmottes7_all[1662:1665,], aes(x=pmean_mar, y=variable))+
-  geom_point()+
-  geom_errorbar(aes(xmin=pCrI2.5, xmax=pCrI97.5), width=0.1)+
-  xlim(c(0,1)) + ylab("") + xlab("Probabilité de détection, IC95%")
-
-
-## Extraction des N et lambda par point de comptage + IC
-mean_lambdaN <- summary(out_marmottes7_coda)$statistics
-CI_lambdaN <- summary(out_marmottes7_coda)$quantiles
-
-save(mean_lambdaN, file="Output/mean_lambdaN.Rdata")
-save(CI_lambdaN, file="Output/CI_lambdaN.Rdata")
-load("Output/mean_lambdaN.Rdata")
-load("Output/CI_lambdaN.Rdata")
-
-## Plot N ~ altitude
-N_all <- cbind(mean_lambdaN[1:552,], CI_lambdaN[1:552,], site.covs_tot)
-colnames(N_all)[c(5,9)] <- c("IC2.5","IC97.5")
-N_sum_mailles <- aggregate(list(Mean=N_all$Mean, IC2.5=N_all$IC2.5, IC97.5=N_all$IC97.5),
-                           by=list(secteur=N_all$secteur, numero_maille=N_all$maille),
-                           function(x){sum(x)/2})
-N_sum_mailles$densite <- N_sum_mailles$Mean/(pi*150*150/10000)
-aggregate(densite~secteur, N_sum_mailles, ci)
-
-Altitude_mean <- aggregate(altitude~secteur+maille, N_all, mean)
-N_all_mailles <- cbind(N_sum_mailles, altitude=Altitude_mean[,"altitude"])
-ggplot(N_all_mailles, aes(x=altitude, y=Mean, color=secteur))+
-  geom_point()+
-  geom_errorbar(aes(ymin=IC2.5, ymax=IC97.5))+
-  labs(color="Sites d'étude")+
-  ylab("Nombre de marmottes estimées par point de comptage")+
-  xlab("Altitude (m)")+
-  theme(legend.position="bottom")
-
-## Plot lambda ~ C (observateur secondaire)
-lambda_all_obsprim <- cbind(mean_lambdaN[558:1109,], CI_lambdaN[558:1109,], 
-                            nb_obs=y_tot[,1], site.covs_tot)
-lambda_all_obsprim$observateur <- "primaire"
-lambda_all_obssec <- cbind(mean_lambdaN[1110:1661,], CI_lambdaN[1110:1661,], 
-                           nb_obs=y_tot[,2], site.covs_tot)
-lambda_all_obssec$observateur <- "secondaire"
-lambda_all <- rbind(lambda_all_obsprim, lambda_all_obssec)
-colnames(lambda_all)[c(5,9)] <- c("IC2.5","IC97.5")
-lambda_sum_mailles <- aggregate(list(Mean=lambda_all$Mean, IC2.5=lambda_all$IC2.5, 
-                                     IC97.5=lambda_all$IC97.5, nb_obs=lambda_all$nb_obs),
-                           by=list(secteur=lambda_all$secteur, 
-                                   numero_maille=lambda_all$maille, 
-                                   observateur=lambda_all$observateur),
-                           function(x){sum(x)/2})
-ggplot(lambda_sum_mailles, aes(x=nb_obs, y=Mean, color=secteur))+
-  geom_abline(slope=1, linetype="dashed")+
-  geom_point()+
-  facet_grid(.~observateur)+
-  geom_errorbar(aes(ymin=IC2.5, ymax=IC97.5))+
-  labs(color="Sites d'étude")+
-  ylab("Nombre de marmottes estimées par point de comptage \n multipliées par la probabilité de détection (lambda)")+
-  xlab("Nombre de marmottes observées")+
-  theme(legend.position="bottom")
-
-cor(lambda_sum_mailles$Mean, lambda_sum_mailles$nb_obs)
-summary(lm(Mean~nb_obs*observateur, lambda_sum_mailles))
-
- 
+# mcmc_marmottes7[,c("beta.altN[1]","beta.altN[2]",
+#     "beta.secteur.derangementP[1]",
+#     "beta.secteur.derangementP[2]",
+#     "beta.secteur.derangementP[3]")]
+# mcmc_marmottes7 <- as.data.frame(as.matrix(out_marmottes7_coda))
+# mcmc_marmottes7$beaufort_0Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`
+# mcmc_marmottes7$lanslevillard_0Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`+mcmc_marmottes7$`beta.secteur.derangementP[2]`
+# mcmc_marmottes7$beaufort_1Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`+mcmc_marmottes7$`beta.secteur.derangementP[3]`
+# mcmc_marmottes7$lanslevillard_1Derangement <- mcmc_marmottes7$`beta.secteur.derangementP[1]`+mcmc_marmottes7$`beta.secteur.derangementP[2]`+mcmc_marmottes7$`beta.secteur.derangementP[3]`
+# mcmc_marmottes7_quant <- t(apply(mcmc_marmottes7, 2, quantile, p=c(0.025, 0.975)))
+# mcmc_marmottes7_mean <- data.frame(mean_mar=apply(mcmc_marmottes7, 2, mean))
+# mcmc_marmottes7_all <- cbind(mcmc_marmottes7_mean, mcmc_marmottes7_quant)
+# mcmc_marmottes7_all$variable <- rownames(mcmc_marmottes7_all)
+# colnames(mcmc_marmottes7_all)[2:3] <- c("CrI2.5","CrI97.5")
+# mcmc_marmottes7_all$pmean_mar <- plogis(mcmc_marmottes7_all$mean_mar)
+# mcmc_marmottes7_all$pCrI2.5 <- plogis(mcmc_marmottes7_all$CrI2.5)
+# mcmc_marmottes7_all$pCrI97.5 <- plogis(mcmc_marmottes7_all$CrI97.5)
+# mcmc_marmottes7_all[1667:1670,]
+# ggplot(mcmc_marmottes7_all[1662:1665,], aes(x=pmean_mar, y=variable))+
+#   geom_point()+
+#   geom_errorbar(aes(xmin=pCrI2.5, xmax=pCrI97.5), width=0.1)+
+#   xlim(c(0,1)) + ylab("") + xlab("Probabilité de détection, IC95%")
+# 
+# 
+# ## Extraction des N et lambda par point de comptage + IC
+# mean_lambdaN <- summary(out_marmottes7_coda)$statistics
+# CI_lambdaN <- summary(out_marmottes7_coda)$quantiles
+# 
+# save(mean_lambdaN, file="Output/mean_lambdaN.Rdata")
+# save(CI_lambdaN, file="Output/CI_lambdaN.Rdata")
+# load("Output/mean_lambdaN.Rdata")
+# load("Output/CI_lambdaN.Rdata")
+# 
+# ## Plot N ~ altitude
+# N_all <- cbind(mean_lambdaN[1:552,], CI_lambdaN[1:552,], site.covs_tot)
+# colnames(N_all)[c(5,9)] <- c("IC2.5","IC97.5")
+# N_sum_mailles <- aggregate(list(Mean=N_all$Mean, IC2.5=N_all$IC2.5, IC97.5=N_all$IC97.5),
+#                            by=list(secteur=N_all$secteur, numero_maille=N_all$maille),
+#                            function(x){sum(x)/2})
+# N_sum_mailles$densite <- N_sum_mailles$Mean/(pi*150*150/10000)
+# aggregate(densite~secteur, N_sum_mailles, ci)
+# 
+# Altitude_mean <- aggregate(altitude~secteur+maille, N_all, mean)
+# N_all_mailles <- cbind(N_sum_mailles, altitude=Altitude_mean[,"altitude"])
+# ggplot(N_all_mailles, aes(x=altitude, y=Mean, color=secteur))+
+#   geom_point()+
+#   geom_errorbar(aes(ymin=IC2.5, ymax=IC97.5))+
+#   labs(color="Sites d'étude")+
+#   ylab("Nombre de marmottes estimées par point de comptage")+
+#   xlab("Altitude (m)")+
+#   theme(legend.position="bottom")
+# 
+# ## Plot lambda ~ C (observateur secondaire)
+# lambda_all_obsprim <- cbind(mean_lambdaN[558:1109,], CI_lambdaN[558:1109,], 
+#                             nb_obs=y_tot[,1], site.covs_tot)
+# lambda_all_obsprim$observateur <- "primaire"
+# lambda_all_obssec <- cbind(mean_lambdaN[1110:1661,], CI_lambdaN[1110:1661,], 
+#                            nb_obs=y_tot[,2], site.covs_tot)
+# lambda_all_obssec$observateur <- "secondaire"
+# lambda_all <- rbind(lambda_all_obsprim, lambda_all_obssec)
+# colnames(lambda_all)[c(5,9)] <- c("IC2.5","IC97.5")
+# lambda_sum_mailles <- aggregate(list(Mean=lambda_all$Mean, IC2.5=lambda_all$IC2.5, 
+#                                      IC97.5=lambda_all$IC97.5, nb_obs=lambda_all$nb_obs),
+#                            by=list(secteur=lambda_all$secteur, 
+#                                    numero_maille=lambda_all$maille, 
+#                                    observateur=lambda_all$observateur),
+#                            function(x){sum(x)/2})
+# ggplot(lambda_sum_mailles, aes(x=nb_obs, y=Mean, color=secteur))+
+#   geom_abline(slope=1, linetype="dashed")+
+#   geom_point()+
+#   facet_grid(.~observateur)+
+#   geom_errorbar(aes(ymin=IC2.5, ymax=IC97.5))+
+#   labs(color="Sites d'étude")+
+#   ylab("Nombre de marmottes estimées par point de comptage \n multipliées par la probabilité de détection (lambda)")+
+#   xlab("Nombre de marmottes observées")+
+#   theme(legend.position="bottom")
+# 
+# cor(lambda_sum_mailles$Mean, lambda_sum_mailles$nb_obs)
+# summary(lm(Mean~nb_obs*observateur, lambda_sum_mailles))
+# 
+#  
 # ## N corrected by Pavailability
 # setwd("G:/FDC_Savoie/Marmottes_Savoie/BDD/Rdata")
 # load("out_marmottes_param.Rdata")
