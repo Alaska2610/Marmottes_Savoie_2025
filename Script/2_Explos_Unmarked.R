@@ -121,6 +121,17 @@ ggplot(observations1)+
 # Explorations Unmarked ---------------------------------------------------
 ################################################################################
 
+# Merging some habitats
+head(observations1)
+table(observations1$habitat)
+observations1$typologie_habitat_new <- observations1$habitat
+observations1[is.element(observations1$habitat, "Prairie de fauche"),]$typologie_habitat_new <- "alpage_herbace"
+observations1[is.element(observations1$habitat, "Alpage"),]$typologie_habitat_new <- "alpage_herbace"
+observations1[is.element(observations1$habitat, "Foret claire"),]$typologie_habitat_new <- "pre_bois"
+observations1[is.element(observations1$habitat, "Lande"),]$typologie_habitat_new <- "pre_bois"
+observations1[is.element(observations1$habitat, "Eboulis /substrat rocheux"),]$typologie_habitat_new <- "eboulis"
+table(observations1$typologie_habitat_new)
+
 # Disturbance 0/1
 table(observations1$derangement)
 observations1$derangement_new <- observations1$derangement
@@ -135,7 +146,7 @@ y_tot[,2] <- observations1$nb_obs_sec-observations1$nb_obs_prim
 y_tot[,2] <- ifelse(y_tot[,2]<0,0,y_tot[,2])
 site.covs_tot <- data.frame(observations1[,c("secteur","meteo",
                                              "derangement","derangement_new",
-                                             "habitat",
+                                             "habitat","typologie_habitat_new",
                                              "orientation","latitude","longitude",
                                              "julian_day",
                                              "session","altitude","maille")])
@@ -163,10 +174,10 @@ ms_tot_det <- fitList(fm1_tot=fm1_tot, fm2_tot=fm2_tot, fm3_tot=fm3_tot,
 
 modSel(ms_tot_det)
 
-fm6_tot <- multinomPois(~secteur+derangement_new ~1, umf_tot)
-fm7_tot <- multinomPois(~secteur+derangement_new ~secteur, umf_tot)
-fm8_tot <- multinomPois(~secteur+derangement_new ~secteur+altitude, umf_tot)
-fm9_tot <- multinomPois(~secteur+derangement_new ~secteur+habitat , umf_tot)
+fm6_tot <- multinomPois(~secteur ~1, umf_tot)
+fm7_tot <- multinomPois(~secteur ~secteur, umf_tot)
+fm8_tot <- multinomPois(~secteur ~secteur+altitude, umf_tot)
+fm9_tot <- multinomPois(~secteur ~secteur+typologie_habitat_new , umf_tot)
 fm10_tot <- multinomPois(~observer_m-1 ~secteur+habitat, umf_tot)
 fm11_tot <- multinomPois(~observer_m-1 ~secteur-1, umf_tot)
 
@@ -177,13 +188,12 @@ modSel(ms_tot_abo)
 
 # Prédictions de l'abondance et de la probabilité de détection
 newdata_tot <- data.frame(expand_grid(secteur=c("Beaufort","Lanslevillard"),
-                                  habitat=unique(observations1$habitat),
-                                  derangement_new=unique(observations1$derangement_new)))
+                                      typologie_habitat_new=unique(observations1$typologie_habitat_new)))
 
 pred_abundance_tot <- predict(fm9_tot, type="state", newdata=newdata_tot)
 pred_abundance_tot1 <- cbind(newdata_tot, pred_abundance_tot)
 
-ggplot(pred_abundance_tot1, aes(y=Predicted, x=habitat))+
+ggplot(pred_abundance_tot1, aes(y=Predicted, x=typologie_habitat_new))+
   geom_bar(stat="identity")+
   facet_grid(.~secteur)+
   theme(axis.text.x=element_text(angle=45,hjust=1,vjust=1, size=12))+
@@ -191,24 +201,22 @@ ggplot(pred_abundance_tot1, aes(y=Predicted, x=habitat))+
   xlab("Habitat")
 
 ##
-newdata_tot1 <- data.frame(expand_grid(secteur=c("Beaufort","Lanslevillard"),
-                                      derangement_new=unique(observations1$derangement_new)))
+newdata_tot1 <- data.frame(expand_grid(secteur=c("Beaufort","Lanslevillard")))
 
 pred_detection_tot <- predict(fm9_tot, type="det", newdata=newdata_tot1) # Probabilité de détection
 pred_detection_tot1 <- cbind(newdata_tot1, pred_detection_tot) # Meilleure détection aux Menuires
 pred_detection_tot2 <- aggregate(Predicted~secteur, pred_detection_tot1, mean)
 
-ggplot(pred_detection_tot1, aes(y=Predicted, x=derangement_new))+
-  facet_grid(.~secteur)+
+ggplot(pred_detection_tot1, aes(y=Predicted, x=secteur))+
   geom_bar(stat="identity", width=0.5)+
   ylab("Probabilité de détection")+
   xlab("Secteur")
 
 ## 
-exp(coef(fm11_tot)[1:2])
+exp(coef(fm9_tot)[1:2])
 # Nb/quart de maille
 
-# Probabilité de détection de chaque observateur 
-plogis(coef(fm11_tot)[3:6])
+# Probabilité de détection de chaque secteur 
+plogis(coef(fm9_tot)[5:6])
 
 

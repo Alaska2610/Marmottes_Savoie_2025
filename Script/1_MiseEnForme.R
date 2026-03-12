@@ -20,3 +20,5 @@ observations1 <- observations
 observations1$diff_obs <- observations1$nb_obs_sec-observations1$nb_obs_prim
 
 save(observations1, file="Output/observations1.Rdata")
+
+save(parametrage, file="Output/parametrage.Rdata")

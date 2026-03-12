@@ -1080,7 +1080,7 @@ npl_marmottes_secteur_derangement_meteo <- model.matrix(data = site.covs_tot, ~ 
 stops_marmottes <- length(observations1[,1])
 
 sectf2 <- site.covs_tot$secteur
-sectf2 <- ifelse(sectf2=="lanslevillard", 1, 2)
+sectf2 <- ifelse(sectf2=="Beaufort", 1, 2)
 
 #prim_ran <- sample(c(1:2), dim(observations1)[1], replace=T)
 prim_ran <- ifelse(observations1$obs_prim=="Manolo"|observations1$obs_prim=="Léane", 1, 2)
@@ -1554,7 +1554,7 @@ fit.mhabitatN.jags <- jags(data = jags.data.mhabitatN,
                            n.thin = 1)
 save(fit.mhabitatN.jags, file="Output/fit.mhabitatN.jags.Rdata")
 
-caterplot(fit.mhabitatN.jags, "beta.habitatN", labels.loc="axis")
+#caterplot(fit.mhabitatN.jags, "beta.habitatN", labels.loc="axis")
 #fit.mhabitatN.mcmc <- as.mcmc(fit.mhabitatN.jags)
 #plot(fit.msecteurP.mcmc)
 
@@ -1762,3 +1762,4 @@ mean(fit.maltitudeN.jags$BUGSoutput$summary[,"Rhat"])
 mean(fit.mhabitatN.jags$BUGSoutput$summary[,"Rhat"])
 mean(fit.mderangementP.altitudeN.jags$BUGSoutput$summary[,"Rhat"])
 mean(fit.mderangementP.habitatN.jags$BUGSoutput$summary[,"Rhat"])
+
