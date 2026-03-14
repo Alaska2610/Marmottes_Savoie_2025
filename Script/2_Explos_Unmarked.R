@@ -22,8 +22,12 @@ tab_meteo_secteur <- as.data.frame(table(observations1$meteo, observations1$sect
 tab_habitat_secteur <- as.data.frame(table(observations1$habitat, observations1$secteur))
 tab_habitat_derangement <- as.data.frame(table(observations1$derangement, observations1$secteur))
 
+## =================================================================
+##    Alors ces 2 lignes de codes ne fonctionnent pas chez moi
 moy_obs_prim <- aggregate(nb_obs_prim~secteur, observations1, ci)
 moy_obs_sec <- aggregate(nb_obs_sec~secteur, observations1, ci)
+##
+## =================================================================
 
 nb_obs_prim_sum <- aggregate(nb_obs_prim~secteur, observations1, sum)
 # 42 à Beaufort, 119 à Lanslevillard
@@ -70,6 +74,7 @@ ggplot(observations1, aes(diff_obs))+
   facet_grid(.~secteur)+
   xlab("Différences du nombre de marmottes entre \n l'observateur primaire et secondaire")+
   ylab("Fréquence")
+## Comments -> pas possible d'avoir des valeurs négatives. A corriger
 
 # Répartition des quarts de mailles selon la météo
 ggplot(tab_meteo_secteur, aes(x=Var1, y=Freq, fill=Var2))+
@@ -155,38 +160,54 @@ observer_m    <- as.matrix(
 )
 
 # Dependant double-observer method
-umf_tot <- unmarkedFrameMPois(y=y_tot, 
-                              siteCovs=site.covs_tot,
-                              obsCovs = list(observer_m=observer_m),
+umf_tot <- unmarkedFrameMPois(y = y_tot, 
+                              siteCovs = site.covs_tot,
+                              obsCovs  = list(observer_m = observer_m),
                               type="depDouble")
 
+## Modélisation de la détection
 # ~detection ~abondance
-fm1_tot <- multinomPois(~1 ~1, umf_tot)
-fm2_tot <- multinomPois(~secteur ~1, umf_tot)
-fm3_tot <- multinomPois(~secteur+session ~1, umf_tot)
-fm4_tot <- multinomPois(~secteur+meteo ~1, umf_tot)
-fm5_tot <- multinomPois(~secteur+derangement_new ~1, umf_tot)
-fm13_tot <- multinomPois(~observer_m ~1, umf_tot)
+fm1_tot  <- multinomPois(~ 1                 ~1, umf_tot)
+fm2_tot  <- multinomPois(~ secteur           ~1, umf_tot)
+fm3_tot  <- multinomPois(~ secteur + session ~1, umf_tot)
+fm4_tot  <- multinomPois(~ secteur + meteo   ~1, umf_tot)
+fm5_tot  <- multinomPois(~ secteur +
+                             derangement_new ~1, umf_tot)
+fm13_tot <- multinomPois(~ observer_m        ~1, umf_tot)
 
-ms_tot_det <- fitList(fm1_tot=fm1_tot, fm2_tot=fm2_tot, fm3_tot=fm3_tot,
-                  fm4_tot=fm4_tot, fm5_tot=fm5_tot, 
-                  fm13_tot=fm13_tot)
-
+ms_tot_det <- fitList(fm1_tot = fm1_tot,
+                      fm2_tot = fm2_tot,
+                      fm3_tot = fm3_tot,
+                      fm4_tot = fm4_tot,
+                      fm5_tot = fm5_tot, 
+                      fm13_tot=fm13_tot
+                      )
 modSel(ms_tot_det)
 
-fm6_tot <- multinomPois(~secteur ~1, umf_tot)
-fm7_tot <- multinomPois(~secteur ~secteur, umf_tot)
-fm8_tot <- multinomPois(~secteur ~secteur+altitude, umf_tot)
-fm9_tot <- multinomPois(~secteur ~secteur+typologie_habitat_new , umf_tot)
-fm10_tot <- multinomPois(~observer_m-1 ~secteur+habitat, umf_tot)
-fm11_tot <- multinomPois(~observer_m-1 ~secteur-1, umf_tot)
+## Modélisation de l'abondance
+fm6_tot <-  multinomPois(~ secteur      ~ 1, umf_tot)
+fm7_tot <-  multinomPois(~ secteur      ~ secteur, umf_tot)
+fm8_tot <-  multinomPois(~ secteur      ~ secteur + altitude, umf_tot)
+fm9_tot <-  multinomPois(~ secteur      ~ secteur + typologie_habitat_new , umf_tot)
+fm10_tot <- multinomPois(~ observer_m-1 ~ secteur + habitat, umf_tot)
+fm11_tot <- multinomPois(~ observer_m-1 ~ secteur-1, umf_tot)
+m9b_tot <-  multinomPois(~ secteur      ~ secteur * typologie_habitat_new , umf_tot)
 
-ms_tot_abo <- fitList(fm6_tot=fm6_tot, fm7_tot=fm7_tot, fm8_tot=fm8_tot, fm9_tot=fm9_tot,
-                  fm10_tot=fm10_tot, fm11_tot=fm11_tot)
+ms_tot_abo <- fitList(fm6_tot = fm6_tot,
+                      fm7_tot = fm7_tot,
+                      fm8_tot = fm8_tot,
+                      fm9_tot = fm9_tot,
+                      fm9b_tot = fm9b_tot,
+                      fm10_tot = fm10_tot,
+                      fm11_tot = fm11_tot
+                      )
 modSel(ms_tot_abo)
 # Production de NaN dans fm8
 
+
+##
 # Prédictions de l'abondance et de la probabilité de détection
+##
 newdata_tot <- data.frame(expand_grid(secteur=c("Beaufort","Lanslevillard"),
                                       typologie_habitat_new=unique(observations1$typologie_habitat_new)))
 
