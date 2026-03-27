@@ -145,18 +145,21 @@ table(observations1$derangement_new)
 
 
 ## Unmarked Double-Observer sur toutes les obs
-y_tot <- matrix(NA, dim(observations1), 2, byrow=T)
-y_tot[,1] <- observations1$nb_obs_prim
-y_tot[,2] <- observations1$nb_obs_sec-observations1$nb_obs_prim
+# On teste en retirant les double 0
+observations1_ss00 <- observations1 %>%
+  filter(nb_obs_prim>0 & nb_obs_sec>0)
+y_tot <- matrix(NA, dim(observations1_ss00), 2, byrow=T)
+y_tot[,1] <- observations1_ss00$nb_obs_prim
+y_tot[,2] <- observations1_ss00$nb_obs_sec-observations1_ss00$nb_obs_prim
 y_tot[,2] <- ifelse(y_tot[,2]<0,0,y_tot[,2])
-site.covs_tot <- data.frame(observations1[,c("secteur","meteo",
+site.covs_tot <- data.frame(observations1_ss00[,c("secteur","meteo",
                                              "derangement","derangement_new",
                                              "habitat","typologie_habitat_new",
                                              "orientation","latitude","longitude",
                                              "julian_day",
                                              "session","altitude","maille")])
 observer_m    <- as.matrix(
-  observations1[,c("obs_prim","obs_sec")]
+  observations1_ss00[,c("obs_prim","obs_sec")]
 )
 
 # Dependant double-observer method
@@ -191,7 +194,7 @@ fm8_tot <-  multinomPois(~ secteur      ~ secteur + altitude, umf_tot)
 fm9_tot <-  multinomPois(~ secteur      ~ secteur + typologie_habitat_new , umf_tot)
 fm10_tot <- multinomPois(~ observer_m-1 ~ secteur + habitat, umf_tot)
 fm11_tot <- multinomPois(~ observer_m-1 ~ secteur-1, umf_tot)
-m9b_tot <-  multinomPois(~ secteur      ~ secteur * typologie_habitat_new , umf_tot)
+fm9b_tot <-  multinomPois(~ secteur      ~ secteur * typologie_habitat_new , umf_tot)
 
 ms_tot_abo <- fitList(fm6_tot = fm6_tot,
                       fm7_tot = fm7_tot,
@@ -204,6 +207,7 @@ ms_tot_abo <- fitList(fm6_tot = fm6_tot,
 modSel(ms_tot_abo)
 # Production de NaN dans fm8
 
+fm6_tot
 
 ##
 # Prédictions de l'abondance et de la probabilité de détection
@@ -238,6 +242,7 @@ exp(coef(fm9_tot)[1:2])
 # Nb/quart de maille
 
 # Probabilité de détection de chaque secteur 
-plogis(coef(fm9_tot)[5:6])
+plogis(coef(fm9_tot)[5])
+plogis(coef(fm6_tot)[2]); plogis(coef(fm6_tot)[2]+coef(fm6_tot)[3])
 
 
