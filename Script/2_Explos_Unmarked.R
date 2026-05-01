@@ -74,7 +74,6 @@ ggplot(observations1, aes(diff_obs))+
   facet_grid(.~secteur)+
   xlab("Différences du nombre de marmottes entre \n l'observateur primaire et secondaire")+
   ylab("Fréquence")
-## Comments -> pas possible d'avoir des valeurs négatives. A corriger
 
 # Répartition des quarts de mailles selon la météo
 ggplot(tab_meteo_secteur, aes(x=Var1, y=Freq, fill=Var2))+
@@ -143,23 +142,29 @@ observations1$derangement_new <- observations1$derangement
 observations1[is.element(observations1$derangement, c("Agricole","Autre","Touristique")),]$derangement_new <- "Derangement"
 table(observations1$derangement_new)
 
+# Meteo 0/1
+table(observations1$meteo)
+observations1$meteo_new <- observations1$meteo
+observations1[is.element(observations1$meteo, c("Couvert","Pluie","Vent")),]$meteo_new <- "NonBeau"
+table(observations1$meteo_new)
+
 
 ## Unmarked Double-Observer sur toutes les obs
 # On teste en retirant les double 0
 observations1_ss00 <- observations1 %>%
   filter(nb_obs_prim>0 & nb_obs_sec>0)
-y_tot <- matrix(NA, dim(observations1_ss00), 2, byrow=T)
-y_tot[,1] <- observations1_ss00$nb_obs_prim
-y_tot[,2] <- observations1_ss00$nb_obs_sec-observations1_ss00$nb_obs_prim
+y_tot <- matrix(NA, dim(observations1), 2, byrow=T)
+y_tot[,1] <- observations1$nb_obs_prim
+y_tot[,2] <- observations1$nb_obs_sec-observations1$nb_obs_prim
 y_tot[,2] <- ifelse(y_tot[,2]<0,0,y_tot[,2])
-site.covs_tot <- data.frame(observations1_ss00[,c("secteur","meteo",
+site.covs_tot <- data.frame(observations1[,c("secteur","meteo", "meteo_new",
                                              "derangement","derangement_new",
                                              "habitat","typologie_habitat_new",
                                              "orientation","latitude","longitude",
                                              "julian_day",
                                              "session","altitude","maille")])
 observer_m    <- as.matrix(
-  observations1_ss00[,c("obs_prim","obs_sec")]
+  observations1[,c("obs_prim","obs_sec")]
 )
 
 # Dependant double-observer method
@@ -173,9 +178,8 @@ umf_tot <- unmarkedFrameMPois(y = y_tot,
 fm1_tot  <- multinomPois(~ 1                 ~1, umf_tot)
 fm2_tot  <- multinomPois(~ secteur           ~1, umf_tot)
 fm3_tot  <- multinomPois(~ secteur + session ~1, umf_tot)
-fm4_tot  <- multinomPois(~ secteur + meteo   ~1, umf_tot)
-fm5_tot  <- multinomPois(~ secteur +
-                             derangement_new ~1, umf_tot)
+fm4_tot  <- multinomPois(~ secteur + meteo_new   ~1, umf_tot)
+fm5_tot  <- multinomPois(~ secteur + derangement_new ~1, umf_tot)
 fm13_tot <- multinomPois(~ observer_m        ~1, umf_tot)
 
 ms_tot_det <- fitList(fm1_tot = fm1_tot,
@@ -192,17 +196,13 @@ fm6_tot <-  multinomPois(~ secteur      ~ 1, umf_tot)
 fm7_tot <-  multinomPois(~ secteur      ~ secteur, umf_tot)
 fm8_tot <-  multinomPois(~ secteur      ~ secteur + altitude, umf_tot)
 fm9_tot <-  multinomPois(~ secteur      ~ secteur + typologie_habitat_new , umf_tot)
-fm10_tot <- multinomPois(~ observer_m-1 ~ secteur + habitat, umf_tot)
-fm11_tot <- multinomPois(~ observer_m-1 ~ secteur-1, umf_tot)
-fm9b_tot <-  multinomPois(~ secteur      ~ secteur * typologie_habitat_new , umf_tot)
+fm10_tot <-  multinomPois(~ secteur      ~ secteur * typologie_habitat_new , umf_tot)
 
 ms_tot_abo <- fitList(fm6_tot = fm6_tot,
                       fm7_tot = fm7_tot,
                       fm8_tot = fm8_tot,
                       fm9_tot = fm9_tot,
-                      fm9b_tot = fm9b_tot,
-                      fm10_tot = fm10_tot,
-                      fm11_tot = fm11_tot
+                      fm10_tot = fm10_tot
                       )
 modSel(ms_tot_abo)
 # Production de NaN dans fm8

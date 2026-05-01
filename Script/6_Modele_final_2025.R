@@ -42,15 +42,10 @@ observations1$saltitude <- scale(observations1$altitude)
 hist(observations1$nb_obs_prim)
 hist(observations1$nb_obs_sec)
 
-# Correction d'une différence = -1 entre les 2 observateurs
-# On met 1 à l'observateur secondaire
-observations1[observations1$diff_obs<0,]$nb_obs_sec <- 1
-
 ## Unmarked Double-Observer sur toutes les obs
 y_tot <- matrix(NA, dim(observations1), 2, byrow=T)
 y_tot[,1] <- observations1$nb_obs_prim
 y_tot[,2] <- observations1$nb_obs_sec-observations1$nb_obs_prim
-y_tot[,2] <- ifelse(y_tot[,2]<0,0,y_tot[,2])
 site.covs_tot <- data.frame(observations1[,c("secteur","meteo",
                                              "derangement","derangement_new",
                                              "habitat","typologie_habitat_new",

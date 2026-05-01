@@ -17,6 +17,13 @@ pt <- st_as_sf(observations, coords = c("longitude", "latitude"), crs = 4326)
 mnt <- get_elev_raster(pt, z=13)
 observations$altitude <- extract(mnt,pt)
 observations1 <- observations
+
+observations1$diff_obs <- observations1$nb_obs_sec-observations1$nb_obs_prim
+
+# Correction d'une différence = -1 entre les 2 observateurs
+# On met 1 à l'observateur secondaire
+observations1[observations1$diff_obs<0,]$nb_obs_sec <- 1
+
 observations1$diff_obs <- observations1$nb_obs_sec-observations1$nb_obs_prim
 
 save(observations1, file="Output/observations1.Rdata")
