@@ -156,7 +156,6 @@ observations1_ss00 <- observations1 %>%
 y_tot <- matrix(NA, dim(observations1), 2, byrow=T)
 y_tot[,1] <- observations1$nb_obs_prim
 y_tot[,2] <- observations1$nb_obs_sec-observations1$nb_obs_prim
-y_tot[,2] <- ifelse(y_tot[,2]<0,0,y_tot[,2])
 site.covs_tot <- data.frame(observations1[,c("secteur","meteo", "meteo_new",
                                              "derangement","derangement_new",
                                              "habitat","typologie_habitat_new",
