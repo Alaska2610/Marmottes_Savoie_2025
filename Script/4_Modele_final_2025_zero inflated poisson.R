@@ -1,9 +1,9 @@
-#####################################
-## Modèle :
-## secteur sur P
-## secteur + habitat + CT sur N
-## habitat sur 0
-#####################################
+#####################################################
+## Model :
+## Site effect on P (detection probability)
+## Site + habitat + CT effects on N (abundance)
+## Habitat effect on Psi (presence/absence 0)
+####################################################
 library(coda)
 library(rjags)
 library(qgraph)
@@ -15,11 +15,21 @@ library(tidyr)
 library(unmarked)
 library(gmodels)
 
+# Uncomment the lines to model the effect of altitude on abundance and comment the habitat effect
+
+#######################
+### Import databases
+#######################
+
 CB <- TRUE
 if(CB == TRUE){setwd("./Scripts")}else
 {setwd("G:/FDC_Savoie/Marmottes_Savoie/")}
 
 load("Output/observations1.Rdata")
+
+####################################
+### Transforming some variables
+####################################
 
 # Merging some habitats
 head(observations1)
@@ -32,7 +42,7 @@ observations1[is.element(observations1$habitat, "Lande"),]$typologie_habitat_new
 observations1[is.element(observations1$habitat, "Eboulis /substrat rocheux"),]$typologie_habitat_new <- "eboulis"
 table(observations1$typologie_habitat_new)
 
-# Disturbance 0/1
+# Transforming disturbance into 0/1
 table(observations1$derangement)
 observations1$derangement_new <- observations1$derangement
 observations1[is.element(observations1$derangement, c("Agricole","Autre","Touristique")),]$derangement_new <- "Derangement"
@@ -44,7 +54,11 @@ hist(observations1$nb_obs_prim)
 hist(observations1$nb_obs_sec)
 hist(observations1$diff_obs)
 
-## Unmarked Double-Observer sur toutes les obs
+#############################################
+### Preparing database as unmarked format
+#############################################
+
+## Unmarked Double-Observer on all the observation
 y_tot <- matrix(NA, dim(observations1), 2, byrow=T)
 y_tot[,1] <- observations1$nb_obs_prim
 y_tot[,2] <- observations1$nb_obs_sec-observations1$nb_obs_prim
@@ -59,14 +73,14 @@ observer_m    <- as.matrix(
 )
 site.covs_tot$site <- site.covs_tot$maille
 table(site.covs_tot$maille, site.covs_tot$secteur)
-# 1 à 291 : Beaufort, 308 à 517 : Lanslevillard
-# Renommage des mailles pour qu'elles aillent de 1 à 70
+# 1 to 291 : Beaufort, 308 to 517 : Lanslevillard
+# Rename the meshes so that they are numbered from 1 to 70
 order_maille <- unique(site.covs_tot[order(site.covs_tot$maille),]$maille)
 for(i in order_maille){
   site.covs_tot[is.element(site.covs_tot$maille, i),]$site <- match(i,order_maille)
 }
 
-## Distance matrix between counting points (distance entre mailles)
+## Distance matrix between counting points
 site.covs_tot$latitude <- as.numeric(as.character(site.covs_tot$latitude))
 site.covs_tot$longitude <- as.numeric(as.character(site.covs_tot$longitude))
 ## Average of the coordinates by site to have a single counting point per site
@@ -82,7 +96,11 @@ rownames(coord_beaufort_mean) <- coord_beaufort_mean$site
 distance_mat_geo1_beaufort <- dist(coord_beaufort_mean[,c("x","y")]) # meters
 distance_mat_geo_beaufort <- as.matrix(distance_mat_geo1_beaufort, labels=T)
 
-# Modèle global
+######################
+### JAGS model
+######################
+
+# Global model
 model7.string_marmottes <-"
           model {
           
@@ -94,13 +112,13 @@ model7.string_marmottes <-"
     beta.secteurP[k] ~ dnorm(0, 0.0001)
   }
   
-  #for(k in 1:npar.habitat){
-  #  beta.habitatN[k] ~ dnorm(0, 0.0001)
-  #}
-  
-  for(k in 1:2){
-    beta.altN[k] ~ dnorm(0, 0.0001)
+  for(k in 1:npar.habitat){
+    beta.habitatN[k] ~ dnorm(0, 0.0001)
   }
+  
+  #for(k in 1:2){
+  #  beta.altN[k] ~ dnorm(0, 0.0001)
+  #}
   
   for(k in 1:npar.habitatpsi){
     beta.habitatPsi[k] ~ dnorm(0, 0.0001)
@@ -149,8 +167,8 @@ model7.string_marmottes <-"
     z[i] ~ dbern(psi[i])
     
     ## ABONDANCE 
-    #log(N[i]) <- inprod(beta.habitatN[], Xhabitat[i, ]) + CT[site[i]]
-    log(N[i]) <- beta.altN[secteur[i]]*altitude[i] + CT[site[i]] 
+    log(N[i]) <- inprod(beta.habitatN[], Xhabitat[i, ]) + CT[site[i]]
+    #log(N[i]) <- beta.altN[secteur[i]]*altitude[i] + CT[site[i]] 
 
     N_eff[i] <- N[i] * z[i] + 0.00001
 
@@ -211,16 +229,16 @@ jags_marmottes7 <- jags.model(
     n = stops_marmottes,
     z = ifelse(rowSums(y_tot) > 0, 1, 0),
     Xsecteur = npl_marmottes,
-    #Xhabitat = npl_marmottes_habitat_secteur,
+    Xhabitat = npl_marmottes_habitat_secteur,
     Xhabitatpsi = npl_marmottes_habitat,
     npar.secteur = dim(npl_marmottes)[2],
-    #npar.habitat = dim(npl_marmottes_habitat_secteur)[2],
+    npar.habitat = dim(npl_marmottes_habitat_secteur)[2],
     npar.habitatpsi = dim(npl_marmottes_habitat)[2],
     prim_ran=prim_ran,
     sec_ran=sec_ran,
     site = site.covs_tot$site,
     secteur = sectf2,
-    altitude = site.covs_tot$saltitude[1:552,], # altitude centrée-réduite
+    #altitude = site.covs_tot$saltitude[1:552,], # altitude centrée-réduite
     D_beaufort = distance_mat_geo_beaufort / 1000,
     D_lanslevillard = distance_mat_geo_lanslevillard / 1000
   ),
@@ -232,13 +250,13 @@ jags_marmottes7 <- jags.model(
     global.tau_beaufort = 0.05
   ),
   n.chains = 4,
-  n.adapt = 500 #10000
+  n.adapt = 10000 #10000
 )
 save(jags_marmottes7, file="Output/jags_marmottes7.Rdata")
 # load("Output/jags_marmottes7.Rdata")
 
 ## Burn-in
-update(jags_marmottes7, 100) #5000
+update(jags_marmottes7, 5000) #5000
 
 ## Save MCMC posteriors for estimated parameters
 out_marmottes7_coda <- coda.samples(
@@ -248,16 +266,19 @@ out_marmottes7_coda <- coda.samples(
       "lambda_spat", "sigmasq",
       "global.mu_lanslevillard",
       "global.mu_beaufort", 
-      #"beta.habitatN",
-      "beta.altN",
+      "beta.habitatN",
+      #"beta.altN",
       "beta.secteurP",
       "beta.habitatPsi"
     ),
-  n.iter = 1000 #50000
+  n.iter = 50000 #50000
 )
 save(out_marmottes7_coda, file="Output/out_marmottes7_coda.Rdata")
 load("Output/out_marmottes7_coda.Rdata")
 
+##################################################
+### Visualization of the posteriors and chains
+##################################################
 colnames(out_marmottes7_coda[[1]])
 
 par(mfrow =  c(3, 3))
@@ -274,16 +295,16 @@ plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
   "beta.habitatPsi[3]")],
   #"lambda_spat","sigmasq")],
   trace = FALSE)
-plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
-  "beta.altN[1]",
-  "beta.altN[2]",
-  "beta.secteurP[1]",
-  "beta.secteurP[2]",
-  "beta.habitatPsi[1]",
-  "beta.habitatPsi[2]",
-  "beta.habitatPsi[3]")],
-  #"lambda_spat","sigmasq")],
-  trace = FALSE)
+# plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
+#   "beta.altN[1]",
+#   "beta.altN[2]",
+#   "beta.secteurP[1]",
+#   "beta.secteurP[2]",
+#   "beta.habitatPsi[1]",
+#   "beta.habitatPsi[2]",
+#   "beta.habitatPsi[3]")],
+#   #"lambda_spat","sigmasq")],
+#   trace = FALSE)
 
 
 ## Plot trace
@@ -299,17 +320,18 @@ plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
   "beta.habitatPsi[3]")],
   #"lambda_spat","sigmasq")],
   density = FALSE)
-plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
-  "beta.altN[1]",
-  "beta.altN[2]",
-  "beta.secteurP[1]",
-  "beta.secteurP[2]",
-  "beta.habitatPsi[1]",
-  "beta.habitatPsi[2]",
-  "beta.habitatPsi[3]")],
-  #"lambda_spat","sigmasq")],
-  density = FALSE)
+# plot(out_marmottes7_coda[,c(#"global.mu_beaufort","global.mu_lanslevillard",
+#   "beta.altN[1]",
+#   "beta.altN[2]",
+#   "beta.secteurP[1]",
+#   "beta.secteurP[2]",
+#   "beta.habitatPsi[1]",
+#   "beta.habitatPsi[2]",
+#   "beta.habitatPsi[3]")],
+#   #"lambda_spat","sigmasq")],
+#   density = FALSE)
 
+## Summary of the model
 summary(out_marmottes7_coda[,c("beta.habitatN[1]",
                                "beta.habitatN[2]",
                                "beta.habitatN[3]",
@@ -321,16 +343,17 @@ summary(out_marmottes7_coda[,c("beta.habitatN[1]",
                                "beta.habitatPsi[3]",
                                "sigmasq",
                                "lambda_spat")])
-summary(out_marmottes7_coda[,c("beta.altN[1]",
-                               "beta.altN[2]",
-                               "beta.secteurP[1]",
-                               "beta.secteurP[2]",
-                               "beta.habitatPsi[1]",
-                               "beta.habitatPsi[2]",
-                               "beta.habitatPsi[3]",
-                               "sigmasq",
-                               "lambda_spat")])
+# summary(out_marmottes7_coda[,c("beta.altN[1]",
+#                                "beta.altN[2]",
+#                                "beta.secteurP[1]",
+#                                "beta.secteurP[2]",
+#                                "beta.habitatPsi[1]",
+#                                "beta.habitatPsi[2]",
+#                                "beta.habitatPsi[3]",
+#                                "sigmasq",
+#                                "lambda_spat")])
 
+## Gelman diagnostic
 gelman.diag(out_marmottes7_coda[,c("beta.habitatN[1]",
                                    "beta.habitatN[2]",
                                    "beta.habitatN[3]",
@@ -340,27 +363,22 @@ gelman.diag(out_marmottes7_coda[,c("beta.habitatN[1]",
                                    "beta.habitatPsi[1]",
                                    "beta.habitatPsi[2]",
                                    "beta.habitatPsi[3]")])
-gelman.diag(out_marmottes7_coda[,c("beta.altN[1]",
-                                   "beta.altN[2]",
-                                   "beta.secteurP[1]",
-                                   "beta.secteurP[2]",
-                                   "beta.habitatPsi[1]",
-                                   "beta.habitatPsi[2]",
-                                   "beta.habitatPsi[3]")])
+# Gelman index < 1.1 for all parameters
+# gelman.diag(out_marmottes7_coda[,c("beta.altN[1]",
+#                                    "beta.altN[2]",
+#                                    "beta.secteurP[1]",
+#                                    "beta.secteurP[2]",
+#                                    "beta.habitatPsi[1]",
+#                                    "beta.habitatPsi[2]",
+#                                    "beta.habitatPsi[3]")])
 
-
+## Caterplot of the estimates
 par(mfrow=c(1,1))
 par(mar=c(2,8,1,1))
 mcmcplots::caterplot(out_marmottes7_coda, "beta.habitatN", labels.loc="axis", 
-          # labels=c("Alpages",
-          #          "Eboulis",
-          #          "Pré/bois"),
           quantiles=list(outer=c(0.025,0.975),inner=c(0.05,0.95)))
 
 mcmcplots::caterplot(out_marmottes7_coda, "beta.habitatPsi", labels.loc="axis", 
-                     labels=c("Alpages",
-                              "Eboulis",
-                              "Pré/bois"),
                      quantiles=list(outer=c(0.025,0.975),inner=c(0.05,0.95)))
 
 mcmcplots::caterplot(out_marmottes7_coda, "beta.secteurP", labels.loc="axis", 
@@ -368,10 +386,12 @@ mcmcplots::caterplot(out_marmottes7_coda, "beta.secteurP", labels.loc="axis",
                    "Lanslevillard"),
           quantiles=list(outer=c(0.025,0.975),inner=c(0.05,0.95)))
 
+## Calculating the detection probability for each site
 mcmc_marmottes7 <- as.data.frame(as.matrix(out_marmottes7_coda))
 mcmc_marmottes7[,c("beta.habitatN[1]",
                    "beta.habitatN[2]",
-                   "beta.habitatN[3]")]
+                   "beta.habitatN[3]",
+                   "beta.habitatN[4]")]
 mcmc_marmottes7$Beaufort <- mcmc_marmottes7$`beta.secteurP[1]`
 mcmc_marmottes7$Lanslevillard <- mcmc_marmottes7$`beta.secteurP[1]`+mcmc_marmottes7$`beta.secteurP[2]`
 mcmc_marmottes7_quant <- t(apply(mcmc_marmottes7, 2, quantile, p=c(0.025, 0.975)))
@@ -383,13 +403,13 @@ mcmc_marmottes7_all$pmean_mar <- plogis(mcmc_marmottes7_all$mean_mar)
 mcmc_marmottes7_all$pCrI2.5 <- plogis(mcmc_marmottes7_all$CrI2.5)
 mcmc_marmottes7_all$pCrI97.5 <- plogis(mcmc_marmottes7_all$CrI97.5)
 mcmc_marmottes7_all[1670:1671,]
-mcmc_marmottes7_all[1668:1669,]
-ggplot(mcmc_marmottes7_all[1668:1669,], aes(x=pmean_mar, y=variable))+
+#mcmc_marmottes7_all[1668:1669,]
+ggplot(mcmc_marmottes7_all[1670:1671,], aes(x=pmean_mar, y=variable))+
   geom_point()+
   geom_errorbar(aes(xmin=pCrI2.5, xmax=pCrI97.5), width=0.1)+
   xlim(c(0,1)) + ylab("") + xlab("Probabilité de détection, IC95%")
 
-## Extraction des N et lambda par point de comptage + IC
+## Calculation mean N_eff and lambda for each counting point + credibility intervals
 mean_lambdaN <- summary(out_marmottes7_coda)$statistics
 CI_lambdaN <- summary(out_marmottes7_coda)$quantiles
 
@@ -398,7 +418,7 @@ save(CI_lambdaN, file="Output/CI_lambdaN.Rdata")
 load("Output/mean_lambdaN.Rdata")
 load("Output/CI_lambdaN.Rdata")
 
-## N ~ secteur et N ~ habitat
+## Calculating abundance (N_eff) for each site and habitat
 N_all <- cbind(mean_lambdaN[1:552,], CI_lambdaN[1:552,], site.covs_tot)
 colnames(N_all)[c(5,9)] <- c("IC2.5","IC97.5")
 N_sum_mailles <- aggregate(list(Mean=N_all$Mean, IC2.5=N_all$IC2.5, IC97.5=N_all$IC97.5),
@@ -408,22 +428,21 @@ N_sum_mailles$densite <- N_sum_mailles$Mean/(pi*150*150/10000)
 aggregate(densite~secteur, N_sum_mailles, ci)
 aggregate(densite~habitat, N_sum_mailles, ci)
 
-Altitude_mean <- aggregate(altitude~secteur+maille, N_all, mean)
-N_all_mailles <- base::merge(N_sum_mailles[-66,], Altitude_mean[,c("maille","altitude")], by="maille")
-ggplot(N_all_mailles, aes(x=altitude, y=Mean, color=secteur))+
-  geom_point()+
-  geom_errorbar(aes(ymin=IC2.5, ymax=IC97.5))+
-  labs(color="Sites d'étude")+
-  ylab("Nombre de marmottes estimées par point de comptage")+
-  xlab("Altitude (m)")+
-  theme(legend.position="bottom")
+# Altitude_mean <- aggregate(altitude~secteur+maille, N_all, mean)
+# N_all_mailles <- base::merge(N_sum_mailles[-66,], Altitude_mean[,c("maille","altitude")], by="maille")
+# ggplot(N_all_mailles, aes(x=altitude, y=Mean, color=secteur))+
+#   geom_point()+
+#   geom_errorbar(aes(ymin=IC2.5, ymax=IC97.5))+
+#   labs(color="Sites d'étude")+
+#   ylab("Nombre de marmottes estimées par point de comptage")+
+#   xlab("Altitude (m)")+
+#   theme(legend.position="bottom")
 
-
-## Plot lambda ~ C (observateur secondaire)
-lambda_all_obsprim <- cbind(mean_lambdaN[562:1113,], CI_lambdaN[562:1113,], # 564:1115
+## Plotting lambda ~ secondary observations
+lambda_all_obsprim <- cbind(mean_lambdaN[564:1115,], CI_lambdaN[564:1115,], # with altitude effect : 562:1113
                             nb_obs=y_tot[,1], site.covs_tot)
 lambda_all_obsprim$observateur <- "primaire"
-lambda_all_obssec <- cbind(mean_lambdaN[1114:1665,], CI_lambdaN[1114:1665,], # 1116:1667
+lambda_all_obssec <- cbind(mean_lambdaN[1116:1667,], CI_lambdaN[1116:1667,], # with altitude effect : 1114:1665
                            nb_obs=y_tot[,2], site.covs_tot)
 lambda_all_obssec$observateur <- "secondaire"
 lambda_all <- rbind(lambda_all_obsprim, lambda_all_obssec)
@@ -446,7 +465,6 @@ ggplot(lambda_sum_mailles, aes(x=nb_obs, y=Mean, color=secteur))+
 
 cor(lambda_sum_mailles$Mean, lambda_sum_mailles$nb_obs)
 summary(lm(Mean~nb_obs*observateur, lambda_sum_mailles))
-
 
 ## N corrected by Pavailability
 load("Output/out_marmottes_parametrage.Rdata")
@@ -471,12 +489,9 @@ aggregate(densite_meandispo~secteur, newNdispo1_ag, ci)
 aggregate(densite_icinf~secteur, newNdispo1_ag, ci)
 aggregate(densite_icsup~secteur, newNdispo1_ag, ci)
 
-
-
-
-
-
-## Get more parameters to create maps
+##########################################
+### Get more parameters to create maps
+##########################################
 out_marmottes7_samples <- jags.samples(
   model = jags_marmottes7,
   variable.names =
@@ -498,7 +513,10 @@ out_marmottes7_samples <- jags.samples(
     ),
   n.iter = 10000
 )
+save(out_marmottes7_samples, file="Output/out_marmottes7_samples.Rdata")
 
+
+# Check steps
 mean(apply(out_marmottes7_samples$mu_beaufort, 1, mean))
 mean(apply(out_marmottes7_samples$mu_lanslevillard, 1, mean))
 mean(apply(out_marmottes7_samples$lambda_spat, 1, mean))
@@ -522,6 +540,7 @@ newNdispo1_ag2 <- merge(newNdispo1_ag, alt_coord1, by="numero_maille")
 N_marmottes7_lanslevillard_cordispo <- newNdispo1_ag2[which(newNdispo1_ag2$x>6.8),]
 N_marmottes7_beaufort_cordispo <- newNdispo1_ag2[which(newNdispo1_ag2$x<6.8),]
 
+## Map of estimated abundance
 ggmap::register_google(key="AIzaSyA53J3oEn4CEPw1xB7Grb2Ei_-AYYdcXes")
 mapmarmot_lanslevillard_N <- get_map(location = c(lon = mean(N_marmottes7_lanslevillard_cordispo$x), lat = mean(N_marmottes7_lanslevillard_cordispo$y)), zoom = 13,
                                      maptype = "terrain", scale = 2)
@@ -539,9 +558,7 @@ ggmap(mapmarmot_beaufort_N) +
   ggtitle("Beaufort")+ scale_size_area(limits=c(0,5.5))+
   labs(size="Densité")
 
-
-
-## Map données brutes
+## Map of observations data
 ggmap(mapmarmot_lanslevillard_N) +
   geom_point(data = observations1[which(observations1$longitude>6.8),], aes(x = as.numeric(as.character(longitude)), y = as.numeric(as.character(latitude)), size=nb_obs_sec))+
   ggtitle("Lanslevillard")+ scale_size_area(limits=c(0,5.5))+
